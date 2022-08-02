@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Schemas for the environment provider endpoint."""
+from typing import Union
 from pydantic import BaseModel
 
 
@@ -21,7 +22,7 @@ class ConfigureEnvironmentProviderRequest(BaseModel):
     """Model for the configure environment provider API."""
 
     suite_id: str
-    dataset: dict
+    dataset: Union[dict, list]
     execution_space_provider: str
     iut_provider: str
     log_area_provider: str

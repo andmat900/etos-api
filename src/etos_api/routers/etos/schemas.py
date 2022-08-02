@@ -1,4 +1,4 @@
-# Copyright 2020-2021 Axis Communications AB.
+# Copyright 2020-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,7 +16,7 @@
 """Schemas for the ETOS endpoint."""
 import os
 from uuid import UUID
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel, validator
 
 # There's a bug with pylint detecting subscription on Optional objects as problematic.
@@ -30,7 +30,7 @@ class StartEtosRequest(BaseModel):
     artifact_identity: Optional[str]
     artifact_id: Optional[UUID]
     test_suite_url: str
-    dataset: Optional[dict] = {}
+    dataset: Optional[Union[dict, list]] = {}
     execution_space_provider: Optional[str] = os.getenv(
         "DEFAULT_EXECUTION_SPACE_PROVIDER", "default"
     )
