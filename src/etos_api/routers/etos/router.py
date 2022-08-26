@@ -55,7 +55,9 @@ async def start_etos(etos: StartEtosRequest):
     except AssertionError as exception:
         LOGGER.error("Test suite validation failed!")
         LOGGER.error(exception)
-        return Response(status_code=400)
+        raise HTTPException(
+            status_code=400, detail=f"Test suite validation failed. {exception}"
+        ) from exception
     LOGGER.info("Test suite validated.")
 
     etos_library = ETOS("ETOS API", os.getenv("HOSTNAME"), "ETOS API")
