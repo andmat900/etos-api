@@ -22,5 +22,6 @@ fastapi==0.61.1
 aiohttp[speedups]==3.6.2
 
 # These are not compatible with etos library
+multidict==5.1.0
 gql==v3.0.0a3
 graphql-core<3.2,>=3.1
