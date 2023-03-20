@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2023 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -19,6 +19,7 @@ from uuid import UUID
 from typing import Union, List
 from pydantic import BaseModel, validator, ValidationError, constr, conlist
 import requests
+from etos_api.library.docker import Docker
 
 
 class Environment(BaseModel):
@@ -178,5 +179,17 @@ class SuiteValidator:  # pylint:disable=too-few-public-methods
         :raises ValidationError: If the suite did not validate.
         """
         downloaded_suite = await self._download_suite(test_suite_url)
-        for suite in downloaded_suite:
-            assert Suite(**suite)
+        for suite_json in downloaded_suite:
+            test_runners = set()
+            suite = Suite(**suite_json)
+            assert suite
+
+            for recipe in suite.recipes:
+                for constraint in recipe.constraints:
+                    if constraint.key == "TEST_RUNNER":
+                        test_runners.add(constraint.value)
+            docker = Docker()
+            for test_runner in test_runners:
+                assert (
+                    await docker.digest(test_runner) is not None
+                ), f"Test runner {test_runner} not found"
