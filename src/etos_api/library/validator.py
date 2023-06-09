@@ -17,9 +17,14 @@
 import logging
 from uuid import UUID
 from typing import Union, List
-from pydantic import BaseModel, validator, ValidationError, constr, conlist
+
+# Pylint refrains from linting C extensions due to arbitrary code execution.
+from pydantic import BaseModel, constr, conlist  # pylint:disable=no-name-in-module
+from pydantic import validator, ValidationError
 import requests
 from etos_api.library.docker import Docker
+
+# pylint:disable=too-few-public-methods
 
 
 class Environment(BaseModel):
@@ -119,10 +124,8 @@ class Recipe(BaseModel):
         for constraint in value:
             model = cls.__constraint_models.get(constraint.key)
             if model is None:
-                raise TypeError(
-                    "Unknown key %r, valid keys: %r"
-                    % (constraint.key, tuple(cls.__constraint_models.keys()))
-                )
+                keys = tuple(cls.__constraint_models.keys())
+                raise TypeError(f"Unknown key {constraint.key}, valid keys: {keys}")
             try:
                 model(**constraint.dict())
             except ValidationError as exception:
@@ -131,12 +134,12 @@ class Recipe(BaseModel):
         more_than_one = [key for key, number in count.items() if number > 1]
         if more_than_one:
             raise ValueError(
-                "Too many instances of keys %r. Only 1 allowed." % more_than_one
+                f"Too many instances of keys {more_than_one}. Only 1 allowed."
             )
         missing = [key for key, number in count.items() if number == 0]
         if missing:
             raise ValueError(
-                "Too few instances of keys %r. At least 1 required." % missing
+                f"Too few instances of keys {missing}. At least 1 required."
             )
         return value
 
@@ -149,7 +152,7 @@ class Suite(BaseModel):
     recipes: List[Recipe]
 
 
-class SuiteValidator:  # pylint:disable=too-few-public-methods
+class SuiteValidator:
     """Validate ETOS suite definitions to make sure they are executable."""
 
     logger = logging.getLogger(__name__)
@@ -163,11 +166,11 @@ class SuiteValidator:  # pylint:disable=too-few-public-methods
         :rtype: list
         """
         try:
-            suite = requests.get(test_suite_url)
+            suite = requests.get(test_suite_url, timeout=60)
             suite.raise_for_status()
         except Exception as exception:  # pylint:disable=broad-except
             raise AssertionError(
-                "Unable to download suite from %r" % test_suite_url
+                f"Unable to download suite from {test_suite_url}"
             ) from exception
         return suite.json()
 

@@ -16,7 +16,7 @@
 """ETOS API context based logging."""
 import logging
 from contextvars import ContextVar
-from etos_lib.logging.logger import setup_logging, FORMAT_CONFIG
+from etos_lib.logging.logger import FORMAT_CONFIG
 
 
 class ContextLogging(logging.Logger):

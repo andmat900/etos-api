@@ -15,7 +15,8 @@
 # limitations under the License.
 """Graphql query handler."""
 import asyncio
-from gql import gql, AIOHTTPTransport, Client
+from gql import gql, Client
+from gql.transport.aiohttp import AIOHTTPTransport
 
 
 class GraphqlQueryHandler:  # pylint:disable=too-few-public-methods

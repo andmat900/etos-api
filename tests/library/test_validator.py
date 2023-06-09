@@ -30,8 +30,9 @@ class TestValidator:
     # Mark all test methods as asyncio methods to tell pytest to 'await' them.
     pytestmark = pytest.mark.asyncio
 
+    @patch("etos_api.library.validator.Docker.digest")
     @patch("etos_api.library.validator.SuiteValidator._download_suite")
-    async def test_validate_proper_suite(self, download_suite_mock):
+    async def test_validate_proper_suite(self, download_suite_mock, digest_mock):
         """Test that the validator validates a proper suite correctly.
 
         Approval criteria:
@@ -41,6 +42,9 @@ class TestValidator:
             1. Validate a proper suite.
             2. Verify that no exceptions were raised.
         """
+        digest_mock.return_value = (
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
         download_suite_mock.return_value = [
             {
                 "name": "TestValidator",

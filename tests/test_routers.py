@@ -16,7 +16,7 @@
 """ETOS API routers."""
 import logging
 import sys
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from etos_lib.lib.debug import Debug
 from etos_api.main import APP
@@ -81,11 +81,12 @@ class TestRouters:
         self.logger.info("STEP: Verify that status code is 308.")
         assert response.status_code == 308
 
+    @patch("etos_api.library.validator.Docker.digest")
     @patch("etos_api.library.validator.SuiteValidator._download_suite")
     @patch("etos_api.library.graphql.GraphqlQueryHandler.execute")
     @patch("etos_api.routers.environment_provider.router.aiohttp.ClientSession")
     def test_post_on_root_with_redirect(
-        self, mock_client, graphql_execute_mock, download_suite_mock
+        self, mock_client, graphql_execute_mock, download_suite_mock, digest_mock
     ):
         """Test that POST requests to / redirects and starts ETOS tests.
 
@@ -96,15 +97,34 @@ class TestRouters:
             1. Send a POST request to root with allow_redirects.
             2. Verify that the status code is 200.
         """
+        digest_mock.return_value = (
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
+
         mock_client().__aenter__.return_value = mock_client
         mock_client.post().__aenter__.return_value = mock_client
+        mock_client.get().__aenter__.return_value = mock_client
+        mock_client.json = AsyncMock(
+            return_value={
+                "dataset": "{}",
+                "iut_provider": "iut",
+                "log_area_provider": "log_area",
+                "execution_space_provider": "execution_space",
+            }
+        )
         mock_client.status = 200
+        # post is called above when adding the __aenter__ return_value.
         mock_client.post.reset_mock()
 
         graphql_execute_mock.return_value = {
             "artifactCreated": {
                 "edges": [
-                    {"node": {"meta": {"id": "cda58701-5614-49bf-9101-11b71a5721fb"}}}
+                    {
+                        "node": {
+                            "meta": {"id": "cda58701-5614-49bf-9101-11b71a5721fb"},
+                            "data": {"identity": "pkg:eiffel-community/etos-api"},
+                        }
+                    }
                 ]
             }
         }
@@ -145,10 +165,13 @@ class TestRouters:
         self.logger.info("STEP: Verify that the status code is 200.")
         assert response.status_code == 200
 
+    @patch("etos_api.library.validator.Docker.digest")
     @patch("etos_api.library.validator.SuiteValidator._download_suite")
     @patch("etos_api.library.graphql.GraphqlQueryHandler.execute")
     @patch("etos_api.routers.environment_provider.router.aiohttp.ClientSession")
-    def test_start_etos(self, mock_client, graphql_execute_mock, download_suite_mock):
+    def test_start_etos(
+        self, mock_client, graphql_execute_mock, download_suite_mock, digest_mock
+    ):
         """Test that POST requests to /etos attempts to start ETOS tests.
 
         Approval criteria:
@@ -162,15 +185,33 @@ class TestRouters:
             3. Verify that a TERCC was sent.
             4. Verify that the environment provider was configured.
         """
+        digest_mock.return_value = (
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
         mock_client().__aenter__.return_value = mock_client
         mock_client.post().__aenter__.return_value = mock_client
+        mock_client.get().__aenter__.return_value = mock_client
+        mock_client.json = AsyncMock(
+            return_value={
+                "dataset": "{}",
+                "iut_provider": "iut",
+                "log_area_provider": "log_area",
+                "execution_space_provider": "execution_space",
+            }
+        )
         mock_client.status = 200
+        # post is called above when adding the __aenter__ return_value.
         mock_client.post.reset_mock()
 
         graphql_execute_mock.return_value = {
             "artifactCreated": {
                 "edges": [
-                    {"node": {"meta": {"id": "cda58701-5614-49bf-9101-11b71a5721fb"}}}
+                    {
+                        "node": {
+                            "meta": {"id": "cda58701-5614-49bf-9101-11b71a5721fb"},
+                            "data": {"identity": "pkg:eiffel-community/etos-api"},
+                        }
+                    }
                 ]
             }
         }
@@ -245,6 +286,15 @@ class TestRouters:
         """
         mock_client().__aenter__.return_value = mock_client
         mock_client.post().__aenter__.return_value = mock_client
+        mock_client.get().__aenter__.return_value = mock_client
+        mock_client.json = AsyncMock(
+            return_value={
+                "dataset": "{}",
+                "iut_provider": "iut",
+                "log_area_provider": "log_area",
+                "execution_space_provider": "execution_space",
+            }
+        )
         mock_client.status = 200
         mock_client.post.reset_mock()
 

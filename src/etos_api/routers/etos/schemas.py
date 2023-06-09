@@ -17,11 +17,12 @@
 import os
 from uuid import UUID
 from typing import Optional, Union
-from pydantic import BaseModel, validator
 
-# There's a bug with pylint detecting subscription on Optional objects as problematic.
-# https://github.com/PyCQA/pylint/issues/3882
-# pylint: disable=unsubscriptable-object
+# Pylint refrains from linting C extensions due to arbitrary code execution.
+from pydantic import BaseModel, validator  # pylint:disable=no-name-in-module
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=no-self-argument
 
 
 class StartEtosRequest(BaseModel):

@@ -15,7 +15,11 @@
 # limitations under the License.
 """Schemas for the environment provider endpoint."""
 from typing import Union
-from pydantic import BaseModel
+
+# Pylint refrains from linting C extensions due to arbitrary code execution.
+from pydantic import BaseModel  # pylint:disable=no-name-in-module
+
+# pylint:disable=too-few-public-methods
 
 
 class ConfigureEnvironmentProviderRequest(BaseModel):

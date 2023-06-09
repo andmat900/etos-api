@@ -11,17 +11,10 @@
 # Add your pinned requirements so that they can be easily installed with:
 # pip install -r requirements.txt
 # Remember to also add them in setup.cfg but unpinned.
-# Example:
-# numpy==1.13.3
-# scipy==1.0
-#
-etos_lib==2.1.0
-pyscaffold==3.2.3
-uvicorn==0.12.2
-fastapi==0.61.1
-aiohttp[speedups]==3.6.2
 
-# These are not compatible with etos library
-multidict==5.1.0
-gql==v3.0.0a3
-graphql-core<3.2,>=3.1
+etos_lib==3.2.1
+pyscaffold~=4.4
+uvicorn~=0.22
+fastapi~=0.96.0
+aiohttp[speedups]~=3.8
+gql[requests]~=3.4
