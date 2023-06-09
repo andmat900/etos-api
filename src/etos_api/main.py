@@ -53,3 +53,4 @@ async def redirect_head_to_root():
 APP.include_router(routers.etos.ROUTER)
 APP.include_router(routers.selftest.ROUTER)
 APP.include_router(routers.environment_provider.ROUTER)
+APP.include_router(routers.logs.ROUTER)

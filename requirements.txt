@@ -18,3 +18,6 @@ uvicorn~=0.22
 fastapi~=0.96.0
 aiohttp[speedups]~=3.8
 gql[requests]~=3.4
+httpx~=0.24
+kubernetes~=26.1
+sse-starlette~=1.6
