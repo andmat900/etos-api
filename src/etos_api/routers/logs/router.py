@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS API log handler."""
+import os
 import asyncio
 import logging
 from uuid import UUID
@@ -24,6 +25,7 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.requests import Request
 import httpx
 
+NAMESPACE_FILE = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 LOGGER = logging.getLogger(__name__)
 ROUTER = APIRouter()
 
@@ -36,11 +38,23 @@ except config.ConfigException:
         LOGGER.warning("Could not load a Kubernetes config")
 
 
+def namespace() -> str:
+    """Get current namespace if available."""
+    if not os.path.isfile(NAMESPACE_FILE):
+        LOGGER.warning(
+            "Not running in Kubernetes. Cannot figure out namespace. "
+            "Defaulting to environment variable 'ETOS_NAMESPACE'."
+        )
+        return os.getenv("ETOS_NAMESPACE")
+    with open(NAMESPACE_FILE, encoding="utf-8") as namespace_file:
+        return namespace_file.read()
+
+
 @ROUTER.get("/logs/{uuid}", tags=["logs"])
 async def get_logs(uuid: UUID, request: Request):
     """Get logs from an ETOS pod and stream them back as server sent events."""
     corev1 = client.CoreV1Api()
-    thread = corev1.list_namespaced_pod("etos-development", async_req=True)
+    thread = corev1.list_namespaced_pod(namespace(), async_req=True)
     pod_list = thread.get()
 
     ip_addr = None
