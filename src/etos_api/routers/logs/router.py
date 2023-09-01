@@ -53,6 +53,7 @@ def namespace() -> str:
 @ROUTER.get("/logs/{uuid}", tags=["logs"])
 async def get_logs(uuid: UUID, request: Request):
     """Get logs from an ETOS pod and stream them back as server sent events."""
+    LOGGER.identifier.set(str(uuid))
     corev1 = client.CoreV1Api()
     thread = corev1.list_namespaced_pod(namespace(), async_req=True)
     pod_list = thread.get()
@@ -77,6 +78,7 @@ async def get_logs(uuid: UUID, request: Request):
                 response = httpx.get(url)
                 lines = response.text.splitlines()
                 for message in lines[index:]:
+                    LOGGER.debug(message)
                     yield {"id": index + 1, "event": "message", "data": message}
                     index += 1
             except httpx.RemoteProtocolError:
