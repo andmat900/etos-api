@@ -1,14 +1,14 @@
 FROM python:3.9.0-buster AS build
 
 COPY . /src
-WORKDIR /src
+WORKDIR /src/python
 RUN python3 setup.py bdist_wheel
 
 FROM python:3.9.0-slim-buster
 ARG TZ
 ENV TZ=$TZ
 
-COPY --from=build /src/dist/*.whl /tmp
+COPY --from=build /src/python/dist/*.whl /tmp
 
 # hadolint ignore=DL3013
 # hadolint ignore=DL3008
