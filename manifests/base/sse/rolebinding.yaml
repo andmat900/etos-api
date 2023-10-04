@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: etos-api
+    app.kubernetes.io/part-of: etos
+    app.kubernetes.io/component: sse
+  name: etos-sse
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: etos-sse:sa:pod-reader
+subjects:
+- kind: ServiceAccount
+  name: etos-sse
