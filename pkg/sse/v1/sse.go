@@ -18,6 +18,7 @@ package sse
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -182,6 +183,9 @@ func (h SSEHandler) url(ctx context.Context, identifier string) (string, error) 
 	url, err := h.kube.LogListenerIP(ctx, identifier)
 	if err != nil {
 		return "", err
+	}
+	if url == "" {
+		return "", errors.New("esr has not started yet")
 	}
 	return fmt.Sprintf("http://%s:8000/v1/log", url), nil
 }
