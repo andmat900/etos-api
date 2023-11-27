@@ -42,6 +42,10 @@ jobs:
         uses: hadolint/hadolint-action@master
         with:
           dockerfile: Dockerfile
+      - name: Run hadolint for SSE
+        uses: hadolint/hadolint-action@master
+        with:
+          dockerfile: deploy/etos-sse/Dockerfile
 
   build-docker-images:
     # The type of runner that the job will run on
@@ -57,3 +61,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+      - name: Build SSE image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./deploy/etos-sse/Dockerfile
