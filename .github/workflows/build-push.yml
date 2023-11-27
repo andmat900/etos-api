@@ -35,15 +35,8 @@ jobs:
         docker push $IMAGE_ID:$VERSION
         echo $IMAGE_ID:$VERSION
         echo "::set-output name=version::$VERSION"
-    - name: Update manifests
-      uses: fjogeleit/yaml-update-action@main
-      with:
-        valueFile: 'manifests/base/deployment.yaml'
-        propertyPath: 'spec.template.spec.containers[0].image'
-        value: registry.nordix.org/eiffel/etos-api:${{ steps.image.outputs.version }}
-        branch: main
-        commitChange: true
-        message: Updating API manifest image to version ${{ steps.image.outputs.version }}
+    outputs:
+      apiVersion: ${{ steps.image.outputs.version }}
   build_sse:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
@@ -71,12 +64,25 @@ jobs:
         docker push $IMAGE_ID:$VERSION
         echo $IMAGE_ID:$VERSION
         echo "::set-output name=version::$VERSION"
+    outputs:
+      sseVersion: ${{ steps.image.outputs.version }}
+  update_manifests:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    needs: [build_api, build_sse]
+    steps:
     - name: Update manifests
       uses: fjogeleit/yaml-update-action@main
       with:
-        valueFile: 'manifests/base/sse/deployment.yaml'
-        propertyPath: 'spec.template.spec.containers[0].image'
-        value: registry.nordix.org/eiffel/etos-sse:${{ steps.image.outputs.version }}
+        changes: |
+          {
+            "manifests/base/sse/deployment.yaml": {
+              "spec.template.spec.containers[0].image": "${{ needs.build_sse.outputs.sseVersion }}"
+            },
+            "manifests/base/deployment.yaml": {
+              "spec.template.spec.containers[0].image": "${{ needs.build_api.outputs.apiVersion }}"
+            }
+          }
         branch: main
         commitChange: true
-        message: Updating SSE manifest image to version ${{ steps.image.outputs.version }}
+        message: Updating SSE image to ${{ needs.build_sse.outputs.sseVersion }} and API image to ${{ needs.build_api.outputs.apiVersion }}
