@@ -19,21 +19,21 @@ spec:
     spec:
       serviceAccountName: etos-sse
       containers:
-      - name: etos-sse
-        image: "registry.nordix.org/eiffel/etos-sse:1.31.1"
-        imagePullPolicy: IfNotPresent
-        env:
-        - name: SERVICE_HOST
-          value: 0.0.0.0
-        ports:
-        - name: http
-          containerPort: 8080
-          protocol: TCP
-        livenessProbe:
-          httpGet:
-            path: /v1alpha/selftest/ping
-            port: http
-        readinessProbe:
-          httpGet:
-            path: /v1alpha/selftest/ping
-            port: http
+        - name: etos-sse
+          image: registry.nordix.org/eiffel/etos-sse:6375641a
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_HOST
+              value: 0.0.0.0
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /v1alpha/selftest/ping
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /v1alpha/selftest/ping
+              port: http
