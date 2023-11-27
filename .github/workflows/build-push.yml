@@ -71,16 +71,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build_api, build_sse]
     steps:
+    - uses: actions/checkout@v3
     - name: Update manifests
       uses: fjogeleit/yaml-update-action@main
       with:
         changes: |
           {
             "manifests/base/sse/deployment.yaml": {
-              "spec.template.spec.containers[0].image": "${{ needs.build_sse.outputs.sseVersion }}"
+              "spec.template.spec.containers[0].image": "registry.nordix.org/eiffel/etos-sse:${{ needs.build_sse.outputs.sseVersion }}"
             },
             "manifests/base/deployment.yaml": {
-              "spec.template.spec.containers[0].image": "${{ needs.build_api.outputs.apiVersion }}"
+              "spec.template.spec.containers[0].image": "registry.nordix.org/eiffel/etos-api:${{ needs.build_api.outputs.apiVersion }}"
             }
           }
         branch: main
