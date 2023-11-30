@@ -50,13 +50,9 @@ class StartEtosRequest(BaseModel):
         :rtype: str or None
         """
         if values.get("artifact_identity") is None and not artifact_id:
-            raise ValueError(
-                "At least one of 'artifact_identity' or 'artifact_id' is required."
-            )
+            raise ValueError("At least one of 'artifact_identity' or 'artifact_id' is required.")
         if values.get("artifact_identity") is not None and artifact_id:
-            raise ValueError(
-                "Only one of 'artifact_identity' or 'artifact_id' is required."
-            )
+            raise ValueError("Only one of 'artifact_identity' or 'artifact_id' is required.")
         return artifact_id
 
 

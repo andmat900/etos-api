@@ -26,9 +26,7 @@ from etos_api.library.graphql_queries import (
 LOGGER = logging.getLogger(__name__)
 
 
-async def wait_for_artifact_created(
-    etos_library, artifact_identity, artifact_id, timeout=30
-):
+async def wait_for_artifact_created(etos_library, artifact_identity, artifact_id, timeout=30):
     """Execute graphql query and wait for an artifact created.
 
     :param etos_library: ETOS library instande.

@@ -101,9 +101,7 @@ class Recipe(BaseModel):
     }
 
     @validator("constraints")
-    def validate_constraints(
-        cls, value
-    ):  # Pydantic requires cls. pylint:disable=no-self-argument
+    def validate_constraints(cls, value):  # Pydantic requires cls. pylint:disable=no-self-argument
         """Validate the constraints fields for each recipe.
 
         Validation is done manually because error messages from pydantic
@@ -133,14 +131,10 @@ class Recipe(BaseModel):
             count[constraint.key] += 1
         more_than_one = [key for key, number in count.items() if number > 1]
         if more_than_one:
-            raise ValueError(
-                f"Too many instances of keys {more_than_one}. Only 1 allowed."
-            )
+            raise ValueError(f"Too many instances of keys {more_than_one}. Only 1 allowed.")
         missing = [key for key, number in count.items() if number == 0]
         if missing:
-            raise ValueError(
-                f"Too few instances of keys {missing}. At least 1 required."
-            )
+            raise ValueError(f"Too few instances of keys {missing}. At least 1 required.")
         return value
 
 
@@ -169,9 +163,7 @@ class SuiteValidator:
             suite = requests.get(test_suite_url, timeout=60)
             suite.raise_for_status()
         except Exception as exception:  # pylint:disable=broad-except
-            raise AssertionError(
-                f"Unable to download suite from {test_suite_url}"
-            ) from exception
+            raise AssertionError(f"Unable to download suite from {test_suite_url}") from exception
         return suite.json()
 
     async def validate(self, test_suite_url):

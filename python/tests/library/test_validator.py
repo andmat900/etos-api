@@ -246,9 +246,7 @@ class TestValidator:
                 ],
             }
         ]
-        self.logger.info(
-            "STEP: Validate a suite with a constraint defined multiple times."
-        )
+        self.logger.info("STEP: Validate a suite with a constraint defined multiple times.")
         validator = SuiteValidator()
         try:
             await validator.validate("url")

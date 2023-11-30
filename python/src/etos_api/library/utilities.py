@@ -62,9 +62,7 @@ async def sync_to_async(function, *args, **kwargs):
     loop = asyncio.get_event_loop()
     future = loop.run_in_executor(
         None,  # Default executor.
-        functools.partial(
-            thread_exception_handler, sys.exc_info(), function, *args, **kwargs
-        ),
+        functools.partial(thread_exception_handler, sys.exc_info(), function, *args, **kwargs),
     )
     return await asyncio.wait_for(future, timeout=None)
 

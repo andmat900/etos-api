@@ -161,18 +161,14 @@ class Docker:
             response = await self.head(session, manifest_url, self.token(manifest_url))
             try:
                 if response.status == 401 and "www-authenticate" in response.headers:
-                    self.logger.info(
-                        "Generate a new authorization token for %r", manifest_url
-                    )
+                    self.logger.info("Generate a new authorization token for %r", manifest_url)
                     response_json = await self.authorize(session, response)
                     with self.lock:
                         self.tokens[manifest_url] = {
                             "token": response_json.get("token"),
                             "expire": time.time() + response_json.get("expires_in"),
                         }
-                    response = await self.head(
-                        session, manifest_url, self.token(manifest_url)
-                    )
+                    response = await self.head(session, manifest_url, self.token(manifest_url))
                 digest = response.headers.get("Docker-Content-Digest")
             except aiohttp.ClientResponseError as exception:
                 self.logger.error("Error getting container image %r", exception)

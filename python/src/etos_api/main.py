@@ -15,10 +15,13 @@
 # limitations under the License.
 """ETOS API."""
 import logging
-from fastapi import FastAPI
-from starlette.responses import RedirectResponse
-from etos_api import routers
 
+from fastapi import FastAPI
+
+# from opentelemetry.sdk.trace import TracerProvider
+from starlette.responses import RedirectResponse
+
+from etos_api import routers
 
 APP = FastAPI()
 LOGGER = logging.getLogger(__name__)
@@ -45,9 +48,7 @@ async def redirect_head_to_root():
     """
     LOGGER.debug("Redirecting head requests to the root endpoint to '/sefltest/ping'")
     # DEPRECATED. Exists only for backwards compatibility.
-    return RedirectResponse(
-        url="/selftest/ping", status_code=308
-    )  # 308 = Permanent Redirect
+    return RedirectResponse(url="/selftest/ping", status_code=308)  # 308 = Permanent Redirect
 
 
 APP.include_router(routers.etos.ROUTER)

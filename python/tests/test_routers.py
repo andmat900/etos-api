@@ -169,9 +169,7 @@ class TestRouters:
     @patch("etos_api.library.validator.SuiteValidator._download_suite")
     @patch("etos_api.library.graphql.GraphqlQueryHandler.execute")
     @patch("etos_api.routers.environment_provider.router.aiohttp.ClientSession")
-    def test_start_etos(
-        self, mock_client, graphql_execute_mock, download_suite_mock, digest_mock
-    ):
+    def test_start_etos(self, mock_client, graphql_execute_mock, download_suite_mock, digest_mock):
         """Test that POST requests to /etos attempts to start ETOS tests.
 
         Approval criteria:
@@ -313,9 +311,7 @@ class TestRouters:
         self.logger.info("STEP: Verify that the status code is 204.")
         assert response.status_code == 204
 
-        self.logger.info(
-            "STEP: Verify that the request was sent to the environment provider."
-        )
+        self.logger.info("STEP: Verify that the request was sent to the environment provider.")
         debug = Debug()
         mock_client.post.assert_called_once_with(
             f"{debug.environment_provider}/configure",

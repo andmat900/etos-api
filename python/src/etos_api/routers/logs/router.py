@@ -14,16 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS API log handler."""
-import os
 import asyncio
 import logging
+import os
 from uuid import UUID
-from kubernetes import client, config
-from fastapi import APIRouter, HTTPException
 
+import httpx
+from fastapi import APIRouter, HTTPException
+from kubernetes import client, config
 from sse_starlette.sse import EventSourceResponse
 from starlette.requests import Request
-import httpx
 
 NAMESPACE_FILE = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 LOGGER = logging.getLogger(__name__)
@@ -65,9 +65,7 @@ async def get_logs(uuid: UUID, request: Request):
         ):
             ip_addr = pod.status.pod_ip
     if ip_addr is None:
-        raise HTTPException(
-            status_code=404, detail=f"Suite runner with UUID={uuid} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Suite runner with UUID={uuid} not found")
 
     async def sse(url):
         index = 0
