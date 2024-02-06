@@ -17,7 +17,9 @@
 import logging
 import sys
 from unittest.mock import patch
+
 import pytest
+
 from etos_api.library.validator import SuiteValidator, ValidationError
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
@@ -297,7 +299,7 @@ class TestValidator:
         try:
             await validator.validate("url")
             exception = False
-        except ValidationError:
+        except TypeError:
             exception = True
         self.logger.info("STEP: Verify that the validator raises ValidationError.")
         assert exception is True

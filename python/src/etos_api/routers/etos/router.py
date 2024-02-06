@@ -1,4 +1,4 @@
-# Copyright 2020-2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -23,10 +23,9 @@ from etos_lib import ETOS
 from fastapi import APIRouter, HTTPException
 from opentelemetry import trace
 
+from etos_api.library.environment import Configuration, configure_testrun
 from etos_api.library.utilities import sync_to_async
 from etos_api.library.validator import SuiteValidator
-from etos_api.routers.environment_provider.router import configure_environment_provider
-from etos_api.routers.environment_provider.schemas import ConfigureEnvironmentProviderRequest
 
 from .schemas import StartEtosRequest, StartEtosResponse
 from .utilities import wait_for_artifact_created
@@ -101,7 +100,7 @@ async def _start(etos: StartEtosRequest, span: "Span") -> dict:
         "selectionStrategy": {"tracker": "Suite Builder", "id": str(uuid4())},
         "batchesUri": etos.test_suite_url,
     }
-    request = ConfigureEnvironmentProviderRequest(
+    config = Configuration(
         suite_id=tercc.meta.event_id,
         dataset=etos.dataset,
         execution_space_provider=etos.execution_space_provider,
@@ -109,8 +108,8 @@ async def _start(etos: StartEtosRequest, span: "Span") -> dict:
         log_area_provider=etos.log_area_provider,
     )
     try:
-        await configure_environment_provider(request)
-    except Exception as exception:  # pylint:disable=broad-except
+        await configure_testrun(config)
+    except AssertionError as exception:
         LOGGER.critical(exception)
         raise HTTPException(
             status_code=400,

@@ -14,25 +14,83 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS API routers."""
+import json
 import logging
 import sys
-from unittest.mock import patch, AsyncMock
-from fastapi.testclient import TestClient
+from unittest import TestCase
+from unittest.mock import patch
+
+from etos_lib.lib.config import Config
 from etos_lib.lib.debug import Debug
+from fastapi.testclient import TestClient
+
 from etos_api.main import APP
+from tests.fake_database import FakeDatabase
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
+IUT_PROVIDER = {
+    "iut": {
+        "id": "default",
+        "list": {
+            "possible": {
+                "$expand": {
+                    "value": {
+                        "type": "$identity.type",
+                        "namespace": "$identity.namespace",
+                        "name": "$identity.name",
+                        "version": "$identity.version",
+                        "qualifiers": "$identity.qualifiers",
+                        "subpath": "$identity.subpath",
+                    },
+                    "to": "$amount",
+                }
+            },
+            "available": "$this.possible",
+        },
+    }
+}
+
+EXECUTION_SPACE_PROVIDER = {
+    "execution_space": {
+        "id": "default",
+        "list": {
+            "possible": {
+                "$expand": {
+                    "value": {"instructions": "$execution_space_instructions"},
+                    "to": "$amount",
+                }
+            },
+            "available": "$this.possible",
+        },
+    }
+}
 
 
-class TestRouters:
+LOG_AREA_PROVIDER = {
+    "log": {
+        "id": "default",
+        "list": {
+            "possible": {
+                "$expand": {
+                    "value": {"upload": {"url": "$dataset.host", "method": "GET"}},
+                    "to": "$amount",
+                }
+            },
+            "available": "$this.possible",
+        },
+    }
+}
+
+
+class TestRouters(TestCase):
     """Test the routers in etos-api."""
 
     logger = logging.getLogger(__name__)
     client = TestClient(APP)
 
-    @staticmethod
-    def teardown_method():
+    def tearDown(self):
         """Cleanup events from ETOS library debug."""
+        Config().reset()
         Debug().events_received.clear()
         Debug().events_published.clear()
 
@@ -43,11 +101,11 @@ class TestRouters:
             - A HEAD request on root shall return 308.
 
         Test steps::
-            1. Send a HEAD request to root without allow_redirects.
+            1. Send a HEAD request to root without follow_redirects.
             2. Verify that status code is 308.
         """
-        self.logger.info("STEP: Send a HEAD request to root without allow_redirects.")
-        response = self.client.head("/", allow_redirects=False)
+        self.logger.info("STEP: Send a HEAD request to root without follow_redirects.")
+        response = self.client.head("/", follow_redirects=False)
         self.logger.info("STEP: Verify that status code is 308.")
         assert response.status_code == 308
 
@@ -58,11 +116,11 @@ class TestRouters:
             - A redirected HEAD request on root shall return 204.
 
         Test steps::
-            1. Send a HEAD request to root with allow_redirects.
+            1. Send a HEAD request to root with follow_redirects.
             2. Verify that status code is 204.
         """
-        self.logger.info("STEP: Send a HEAD request to root with allow_redirects.")
-        response = self.client.head("/", allow_redirects=True)
+        self.logger.info("STEP: Send a HEAD request to root with follow_redirects.")
+        response = self.client.head("/", follow_redirects=True)
         self.logger.info("STEP: Verify that status code is 204.")
         assert response.status_code == 204
 
@@ -73,20 +131,19 @@ class TestRouters:
             - A POST request on root shall return 308.
 
         Test steps::
-            1. Send a POST request to root without allow_redirects.
+            1. Send a POST request to root without follow_redirects.
             2. Verify that status code is 308.
         """
-        self.logger.info("STEP: Send a POST request to root without allow_redirects.")
-        response = self.client.post("/", allow_redirects=False)
+        self.logger.info("STEP: Send a POST request to root without follow_redirects.")
+        response = self.client.post("/", follow_redirects=False)
         self.logger.info("STEP: Verify that status code is 308.")
         assert response.status_code == 308
 
     @patch("etos_api.library.validator.Docker.digest")
     @patch("etos_api.library.validator.SuiteValidator._download_suite")
     @patch("etos_api.library.graphql.GraphqlQueryHandler.execute")
-    @patch("etos_api.routers.environment_provider.router.aiohttp.ClientSession")
     def test_post_on_root_with_redirect(
-        self, mock_client, graphql_execute_mock, download_suite_mock, digest_mock
+        self, graphql_execute_mock, download_suite_mock, digest_mock
     ):
         """Test that POST requests to / redirects and starts ETOS tests.
 
@@ -94,27 +151,19 @@ class TestRouters:
             - A redirected POST requests to root shall return 200.
 
         Test steps::
-            1. Send a POST request to root with allow_redirects.
+            1. Send a POST request to root with follow_redirects.
             2. Verify that the status code is 200.
         """
         digest_mock.return_value = (
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         )
-
-        mock_client().__aenter__.return_value = mock_client
-        mock_client.post().__aenter__.return_value = mock_client
-        mock_client.get().__aenter__.return_value = mock_client
-        mock_client.json = AsyncMock(
-            return_value={
-                "dataset": "{}",
-                "iut_provider": "iut",
-                "log_area_provider": "log_area",
-                "execution_space_provider": "execution_space",
-            }
+        fake_database = FakeDatabase()
+        Config().set("database", fake_database)
+        fake_database.put("/environment/provider/log-area/default", json.dumps(LOG_AREA_PROVIDER))
+        fake_database.put("/environment/provider/iut/default", json.dumps(IUT_PROVIDER))
+        fake_database.put(
+            "/environment/provider/execution-space/default", json.dumps(EXECUTION_SPACE_PROVIDER)
         )
-        mock_client.status = 200
-        # post is called above when adding the __aenter__ return_value.
-        mock_client.post.reset_mock()
 
         graphql_execute_mock.return_value = {
             "artifactCreated": {
@@ -153,14 +202,14 @@ class TestRouters:
             }
         ]
 
-        self.logger.info("STEP: Send a POST request to root with allow_redirects.")
+        self.logger.info("STEP: Send a POST request to root with follow_redirects.")
         response = self.client.post(
             "/",
             json={
                 "artifact_identity": "pkg:testing/etos",
                 "test_suite_url": "http://localhost/my_test.json",
             },
-            allow_redirects=True,
+            follow_redirects=True,
         )
         self.logger.info("STEP: Verify that the status code is 200.")
         assert response.status_code == 200
@@ -168,8 +217,7 @@ class TestRouters:
     @patch("etos_api.library.validator.Docker.digest")
     @patch("etos_api.library.validator.SuiteValidator._download_suite")
     @patch("etos_api.library.graphql.GraphqlQueryHandler.execute")
-    @patch("etos_api.routers.environment_provider.router.aiohttp.ClientSession")
-    def test_start_etos(self, mock_client, graphql_execute_mock, download_suite_mock, digest_mock):
+    def test_start_etos(self, graphql_execute_mock, download_suite_mock, digest_mock):
         """Test that POST requests to /etos attempts to start ETOS tests.
 
         Approval criteria:
@@ -186,20 +234,13 @@ class TestRouters:
         digest_mock.return_value = (
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         )
-        mock_client().__aenter__.return_value = mock_client
-        mock_client.post().__aenter__.return_value = mock_client
-        mock_client.get().__aenter__.return_value = mock_client
-        mock_client.json = AsyncMock(
-            return_value={
-                "dataset": "{}",
-                "iut_provider": "iut",
-                "log_area_provider": "log_area",
-                "execution_space_provider": "execution_space",
-            }
+        fake_database = FakeDatabase()
+        Config().set("database", fake_database)
+        fake_database.put("/environment/provider/log-area/default", json.dumps(LOG_AREA_PROVIDER))
+        fake_database.put("/environment/provider/iut/default", json.dumps(IUT_PROVIDER))
+        fake_database.put(
+            "/environment/provider/execution-space/default", json.dumps(EXECUTION_SPACE_PROVIDER)
         )
-        mock_client.status = 200
-        # post is called above when adding the __aenter__ return_value.
-        mock_client.post.reset_mock()
 
         graphql_execute_mock.return_value = {
             "artifactCreated": {
@@ -257,73 +298,17 @@ class TestRouters:
         assert tercc is not None
         assert response.json().get("tercc") == tercc.meta.event_id
         self.logger.info("STEP: Verify that the environment provider was configured.")
-        mock_client.post.assert_called_once_with(
-            f"{debug.environment_provider}/configure",
-            json={
-                "suite_id": tercc.meta.event_id,
-                "dataset": {},
-                "execution_space_provider": "default",
-                "iut_provider": "default",
-                "log_area_provider": "default",
-            },
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+
+        log_area = json.loads(
+            fake_database.get(f"/testrun/{tercc.meta.event_id}/provider/log-area")[0]
         )
-
-    @patch("etos_api.routers.environment_provider.router.aiohttp.ClientSession")
-    def test_configure_environment_provider(self, mock_client):
-        """Test that configure requests are proxied to the environment provider.
-
-        Approval criteria:
-            - Requests to configure shall be redirected to the environment provider.
-            - HTTP status code shall be 204.
-
-        Test steps::
-            1. Send a POST request to configure.
-            2. Verify that the status code is 204.
-            3. Verify that the request was sent to the environment provider.
-        """
-        mock_client().__aenter__.return_value = mock_client
-        mock_client.post().__aenter__.return_value = mock_client
-        mock_client.get().__aenter__.return_value = mock_client
-        mock_client.json = AsyncMock(
-            return_value={
-                "dataset": "{}",
-                "iut_provider": "iut",
-                "log_area_provider": "log_area",
-                "execution_space_provider": "execution_space",
-            }
+        iut = json.loads(fake_database.get(f"/testrun/{tercc.meta.event_id}/provider/iut")[0])
+        execution_space = json.loads(
+            fake_database.get(f"/testrun/{tercc.meta.event_id}/provider/execution-space")[0]
         )
-        mock_client.status = 200
-        mock_client.post.reset_mock()
-
-        self.logger.info("STEP: Send a POST request to configure.")
-        response = self.client.post(
-            "environment_provider/configure",
-            json={
-                "suite_id": "f5d5bc7b-c6b8-406f-a997-43c8217e32c1",
-                "dataset": {},
-                "iut_provider": "iut",
-                "execution_space_provider": "execution_space",
-                "log_area_provider": "log_area",
-            },
-        )
-
-        self.logger.info("STEP: Verify that the status code is 204.")
-        assert response.status_code == 204
-
-        self.logger.info("STEP: Verify that the request was sent to the environment provider.")
-        debug = Debug()
-        mock_client.post.assert_called_once_with(
-            f"{debug.environment_provider}/configure",
-            json={
-                "suite_id": "f5d5bc7b-c6b8-406f-a997-43c8217e32c1",
-                "dataset": {},
-                "execution_space_provider": "execution_space",
-                "iut_provider": "iut",
-                "log_area_provider": "log_area",
-            },
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
-        )
+        self.assertDictEqual(log_area, LOG_AREA_PROVIDER)
+        self.assertDictEqual(iut, IUT_PROVIDER)
+        self.assertDictEqual(execution_space, EXECUTION_SPACE_PROVIDER)
 
     def test_selftest_get_ping(self):
         """Test that selftest ping with HTTP GET pings the system.

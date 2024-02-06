@@ -15,11 +15,11 @@
 # limitations under the License.
 """Schemas for the ETOS endpoint."""
 import os
-from uuid import UUID
 from typing import Optional, Union
+from uuid import UUID
 
 # Pylint refrains from linting C extensions due to arbitrary code execution.
-from pydantic import BaseModel, validator  # pylint:disable=no-name-in-module
+from pydantic import BaseModel, Field, field_validator  # pylint:disable=no-name-in-module
 
 # pylint: disable=too-few-public-methods
 # pylint: disable=no-self-argument
@@ -29,7 +29,7 @@ class StartEtosRequest(BaseModel):
     """Request model for the ETOS start API."""
 
     artifact_identity: Optional[str]
-    artifact_id: Optional[UUID]
+    artifact_id: Optional[UUID] = Field(default=None, validate_default=True)
     test_suite_url: str
     dataset: Optional[Union[dict, list]] = {}
     execution_space_provider: Optional[str] = os.getenv(
@@ -38,17 +38,18 @@ class StartEtosRequest(BaseModel):
     iut_provider: Optional[str] = os.getenv("DEFAULT_IUT_PROVIDER", "default")
     log_area_provider: Optional[str] = os.getenv("DEFAULT_LOG_AREA_PROVIDER", "default")
 
-    @validator("artifact_id", always=True)
-    def validate_id_or_identity(cls, artifact_id, values):
+    @field_validator("artifact_id")
+    def validate_id_or_identity(cls, artifact_id, info):
         """Validate that at least one and only one of id and identity are set.
 
         :param artifact_id: The value of 'artifact_id' to validate.
         :value artifact_id: str or None
-        :param values: The list of values set on the model.
-        :type values: list
+        :param info: The information about the model.
+        :type info: FieldValidationInfo
         :return: The value of artifact_id.
         :rtype: str or None
         """
+        values = info.data
         if values.get("artifact_identity") is None and not artifact_id:
             raise ValueError("At least one of 'artifact_identity' or 'artifact_id' is required.")
         if values.get("artifact_identity") is not None and artifact_id:

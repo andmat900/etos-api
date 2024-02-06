@@ -15,13 +15,16 @@
 # limitations under the License.
 """ETOS API suite validator module."""
 import logging
+from typing import List, Union
 from uuid import UUID
-from typing import Union, List
+
+import requests
 
 # Pylint refrains from linting C extensions due to arbitrary code execution.
-from pydantic import BaseModel, constr, conlist  # pylint:disable=no-name-in-module
-from pydantic import validator, ValidationError
-import requests
+from pydantic import BaseModel  # pylint:disable=no-name-in-module
+from pydantic import ValidationError, conlist, constr, field_validator
+from pydantic.fields import PrivateAttr
+
 from etos_api.library.docker import Docker
 
 # pylint:disable=too-few-public-methods
@@ -45,7 +48,7 @@ class Checkout(BaseModel):
     """ETOS suite definion 'CHECKOUT' constraint."""
 
     key: str
-    value: conlist(str, min_items=1)
+    value: conlist(str, min_length=1)
 
 
 class Parameters(BaseModel):
@@ -91,16 +94,18 @@ class Recipe(BaseModel):
     id: UUID
     testCase: TestCase
 
-    __constraint_models = {
-        "ENVIRONMENT": Environment,
-        "COMMAND": Command,
-        "CHECKOUT": Checkout,
-        "PARAMETERS": Parameters,
-        "EXECUTE": Execute,
-        "TEST_RUNNER": TestRunner,
-    }
+    __constraint_models = PrivateAttr(
+        {
+            "ENVIRONMENT": Environment,
+            "COMMAND": Command,
+            "CHECKOUT": Checkout,
+            "PARAMETERS": Parameters,
+            "EXECUTE": Execute,
+            "TEST_RUNNER": TestRunner,
+        }
+    )
 
-    @validator("constraints")
+    @field_validator("constraints")
     def validate_constraints(cls, value):  # Pydantic requires cls. pylint:disable=no-self-argument
         """Validate the constraints fields for each recipe.
 
@@ -118,14 +123,15 @@ class Recipe(BaseModel):
         :return: Same as value, if validated.
         :rtype: Any
         """
-        count = dict.fromkeys(cls.__constraint_models.keys(), 0)
+        keys = cls.__constraint_models.default.keys()
+        count = dict.fromkeys(keys, 0)
         for constraint in value:
-            model = cls.__constraint_models.get(constraint.key)
+            model = cls.__constraint_models.default.get(constraint.key)
             if model is None:
-                keys = tuple(cls.__constraint_models.keys())
+                keys = tuple(keys)
                 raise TypeError(f"Unknown key {constraint.key}, valid keys: {keys}")
             try:
-                model(**constraint.dict())
+                model(**constraint.model_dump())
             except ValidationError as exception:
                 raise ValueError(str(exception)) from exception
             count[constraint.key] += 1
