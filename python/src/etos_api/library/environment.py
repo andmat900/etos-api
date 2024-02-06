@@ -56,7 +56,7 @@ async def configure_testrun(configuration: Configuration) -> None:
         configuration.iut_provider,
         testrun.join("provider/iut"),
     )
-    await save_json(testrun.join("provider/dataset"), json.dumps(configuration.dataset))
+    await save_json(testrun.join("provider/dataset"), configuration.dataset)
 
 
 async def do_configure(path: ETCDPath, provider_id: str, testrun: ETCDPath) -> None:
