@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "properties": {
+        "execution_space": {
+        "type": "object",
+            "properties": {
+                "id": { "type": "string" },
+                "checkin": {},
+                "checkout": {},
+                "list": {
+                    "properties": {
+                        "possible": {},
+                        "available": {
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "identifier": {}
+                                },
+                                "required": ["identifier"]
+                            }
+                        }
+                    }
+                }
+            },
+            "required": ["id", "list"],
+            "additionalProperties": false
+        }
+    },
+    "required": ["execution_space"],
+    "additionalProperties": false
+}

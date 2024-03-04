@@ -27,6 +27,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from etos_api.library.context_logging import ContextLogging
 
+from .library.providers.register import RegisterProviders
 from .main import APP
 
 # The API shall not send logs to RabbitMQ as it
@@ -56,3 +57,5 @@ if os.getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"):
     FastAPIInstrumentor().instrument_app(
         APP, tracer_provider=PROVIDER, excluded_urls="selftest/.*,logs/.*"
     )
+
+REG = RegisterProviders()

@@ -1,0 +1,62 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "properties": {
+        "iut": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "string" },
+                "checkin": {},
+                "checkout": {},
+                "list": {
+                    "properties": {
+                        "possible": {},
+                        "available": {}
+                    }
+                },
+                "prepare": {
+                    "type": "object",
+                    "properties": {
+                        "stages": {
+                            "type": "object",
+                            "properties": {
+                                "environment_provider": {
+                                    "type": "object",
+                                    "properties": {
+                                        "steps": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "suite_runner": {
+                                    "type": "object",
+                                    "properties": {
+                                        "steps": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "test_runner": {
+                                    "type": "object",
+                                    "properties": {
+                                        "steps": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "stages"
+                    ]
+                }
+            },
+            "required": ["id", "list"],
+            "additionalProperties": false
+        }
+    },
+    "required": ["iut"],
+    "additionalProperties": false
+}
