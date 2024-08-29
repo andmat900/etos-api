@@ -1,0 +1,16 @@
+version: "3.7"
+services:
+  etos-iut:
+    build:
+      context: .
+      dockerfile: ./deploy/etos-iut/Dockerfile.dev
+      args:
+        http_proxy: "${http_proxy}"
+        https_proxy: "${https_proxy}"
+    volumes:
+      - ./:/app
+    ports:
+      - 8080:8080
+    env_file:
+      - ./configs/development.env
+    entrypoint: ["/bin/bash", "./scripts/entrypoint.sh"]

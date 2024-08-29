@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/eiffel-community/etos-api/internal/config"
+	config "github.com/eiffel-community/etos-api/internal/configs/sse"
 	"github.com/eiffel-community/etos-api/internal/kubernetes"
 	"github.com/eiffel-community/etos-api/pkg/application"
 	"github.com/eiffel-community/etos-api/pkg/events"

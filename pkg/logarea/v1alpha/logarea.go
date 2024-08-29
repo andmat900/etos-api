@@ -25,7 +25,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/eiffel-community/etos-api/internal/config"
+	config "github.com/eiffel-community/etos-api/internal/configs/logarea"
 	"github.com/eiffel-community/etos-api/pkg/application"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"

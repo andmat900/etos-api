@@ -9,6 +9,7 @@ resources:
   - deployment.yaml
   - ./sse
   - ./logarea
+  - ./iut
 
 
 # By generating the configmap it will get a unique name on each apply

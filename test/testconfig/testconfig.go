@@ -17,7 +17,7 @@
 package testconfig
 
 import (
-	"github.com/eiffel-community/etos-api/internal/config"
+	config "github.com/eiffel-community/etos-api/internal/configs/base"
 )
 
 type cfg struct {

@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/eiffel-community/etos-api/internal/config"
+	config "github.com/eiffel-community/etos-api/internal/configs/base"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"

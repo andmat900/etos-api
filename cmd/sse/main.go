@@ -24,7 +24,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/eiffel-community/etos-api/internal/config"
+	config "github.com/eiffel-community/etos-api/internal/configs/sse"
 	"github.com/eiffel-community/etos-api/internal/logging"
 	"github.com/eiffel-community/etos-api/internal/server"
 	"github.com/eiffel-community/etos-api/pkg/application"
