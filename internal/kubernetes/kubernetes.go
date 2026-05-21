@@ -26,6 +26,9 @@ import (
 	v1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -38,12 +41,14 @@ type cacheEntry struct {
 
 // Cache for Kubernetes API responses with TTL
 type kubernetesCache struct {
-	jobs     sync.Map      // map[string]*cacheEntry for job lists
-	pods     sync.Map      // map[string]*cacheEntry for pod lists
-	cacheTTL time.Duration // Cache validity duration
+	jobs      sync.Map      // map[string]*cacheEntry for job lists
+	pods      sync.Map      // map[string]*cacheEntry for pod lists
+	testruns  sync.Map      // map[string]*cacheEntry for testrun lists
+	cacheTTL  time.Duration // Cache validity duration
 	// Mutexes to prevent concurrent API calls for the same resource
-	jobsMutex sync.Mutex
-	podsMutex sync.Mutex
+	jobsMutex      sync.Mutex
+	podsMutex      sync.Mutex
+	testrunsMutex  sync.Mutex
 }
 
 // newKubernetesCache creates a new cache with configured cache validity
@@ -54,7 +59,7 @@ func newKubernetesCache() *kubernetesCache {
 }
 
 // getAllJobs retrieves all jobs from cache or API, making API calls if cached data is stale
-func (c *kubernetesCache) getAllJobs(ctx context.Context, client *kubernetes.Clientset, namespace string, logger *logrus.Entry) (*v1.JobList, error) {
+func (c *kubernetesCache) getAllJobs(ctx context.Context, client kubernetes.Interface, namespace string, logger *logrus.Entry) (*v1.JobList, error) {
 	// Use namespace as cache key since we're caching all jobs in the namespace
 	key := fmt.Sprintf("all_jobs_%s", namespace)
 
@@ -107,7 +112,7 @@ func (c *kubernetesCache) getAllJobs(ctx context.Context, client *kubernetes.Cli
 }
 
 // getAllPods retrieves all pods from cache or API, making API calls if cached data is stale
-func (c *kubernetesCache) getAllPods(ctx context.Context, client *kubernetes.Clientset, namespace string, logger *logrus.Entry) (*corev1.PodList, error) {
+func (c *kubernetesCache) getAllPods(ctx context.Context, client kubernetes.Interface, namespace string, logger *logrus.Entry) (*corev1.PodList, error) {
 	// Use namespace as cache key since we're caching all pods in the namespace
 	key := fmt.Sprintf("all_pods_%s", namespace)
 
@@ -159,6 +164,52 @@ func (c *kubernetesCache) getAllPods(ctx context.Context, client *kubernetes.Cli
 	return pods, nil
 }
 
+// getAllTestRuns retrieves all TestRun CRs from cache or API, making API calls if cached data is stale
+func (c *kubernetesCache) getAllTestRuns(ctx context.Context, dynClient dynamic.Interface, namespace string, logger *logrus.Entry) ([]unstructured.Unstructured, error) {
+	key := fmt.Sprintf("all_testruns_%s", namespace)
+
+	checkCache := func() ([]unstructured.Unstructured, bool) {
+		if cached, ok := c.testruns.Load(key); ok {
+			if entry, ok := cached.(*cacheEntry); ok {
+				if time.Since(entry.timestamp) < c.cacheTTL {
+					if items, ok := entry.data.([]unstructured.Unstructured); ok {
+						return items, true
+					}
+				}
+			}
+		}
+		return nil, false
+	}
+
+	if items, found := checkCache(); found {
+		logger.Debugf("Returning cached TestRuns for namespace: %s (age: %v, count: %d)", namespace, time.Since(getTimestamp(&c.testruns, key)), len(items))
+		return items, nil
+	}
+
+	c.testrunsMutex.Lock()
+	defer c.testrunsMutex.Unlock()
+
+	if items, found := checkCache(); found {
+		logger.Debugf("Returning cached TestRuns for namespace: %s (age: %v, count: %d) [double-check]", namespace, time.Since(getTimestamp(&c.testruns, key)), len(items))
+		return items, nil
+	}
+
+	logger.Debugf("Making Kubernetes API call to fetch all TestRuns for namespace: %s", namespace)
+	list, err := dynClient.Resource(testRunGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		logger.Errorf("Failed to fetch TestRuns from Kubernetes API for namespace %s: %v", namespace, err)
+		return nil, err
+	}
+
+	c.testruns.Store(key, &cacheEntry{
+		data:      list.Items,
+		timestamp: time.Now(),
+	})
+
+	logger.Debugf("Successfully fetched and cached %d TestRuns for namespace: %s", len(list.Items), namespace)
+	return list.Items, nil
+}
+
 // getTimestamp is a helper function to get the timestamp of a cache entry
 func getTimestamp(cache *sync.Map, key string) time.Time {
 	if cached, ok := cache.Load(key); ok {
@@ -170,11 +221,12 @@ func getTimestamp(cache *sync.Map, key string) time.Time {
 }
 
 type Kubernetes struct {
-	logger    *logrus.Entry
-	config    *rest.Config
-	client    *kubernetes.Clientset
-	namespace string
-	cache     *kubernetesCache
+	logger        *logrus.Entry
+	config        *rest.Config
+	client        kubernetes.Interface
+	dynamicClient dynamic.Interface
+	namespace     string
+	cache         *kubernetesCache
 }
 
 // New creates a new Kubernetes struct.
@@ -192,7 +244,7 @@ func (k *Kubernetes) kubeconfig() (*rest.Config, error) {
 }
 
 // clientset creates a new Kubernetes client
-func (k *Kubernetes) clientset() (*kubernetes.Clientset, error) {
+func (k *Kubernetes) clientset() (kubernetes.Interface, error) {
 	if k.client != nil {
 		return k.client, nil
 	}
@@ -227,7 +279,7 @@ func (k *Kubernetes) clientset() (*kubernetes.Clientset, error) {
 }
 
 // getJobsByIdentifier returns a list of jobs bound to the given testrun identifier.
-func (k *Kubernetes) getJobsByIdentifier(ctx context.Context, client *kubernetes.Clientset, identifier string) (*v1.JobList, error) {
+func (k *Kubernetes) getJobsByIdentifier(ctx context.Context, client kubernetes.Interface, identifier string) (*v1.JobList, error) {
 	// Get all jobs from cache or API
 	allJobs, err := k.cache.getAllJobs(ctx, client, k.namespace, k.logger)
 	if err != nil {
@@ -293,8 +345,14 @@ func (k *Kubernetes) IsFinished(ctx context.Context, identifier string) bool {
 		return false
 	}
 	if len(jobs.Items) == 0 {
-		// Assume that a job is finished if it does not exist.
-		k.logger.Warningf("job with id %s does not exist, assuming finished", identifier)
+		// Before assuming finished, check if a TestRun CR exists for this identifier.
+		// In v1alpha, there is a delay between TestRun creation and suite-runner Job
+		// creation (during environment provisioning), so the Job may not exist yet.
+		if k.hasActiveTestRun(ctx, identifier) {
+			k.logger.Infof("no suite-runner job found for %s but TestRun is still active", identifier)
+			return false
+		}
+		k.logger.Warningf("job with id %s does not exist and no active TestRun found, assuming finished", identifier)
 		return true
 	}
 	job := jobs.Items[0]
@@ -302,6 +360,83 @@ func (k *Kubernetes) IsFinished(ctx context.Context, identifier string) bool {
 		return false
 	}
 	return true
+}
+
+// testRunGVR is the GroupVersionResource for the ETOS TestRun CRD.
+var testRunGVR = schema.GroupVersionResource{
+	Group:    "etos.eiffel-community.github.io",
+	Version:  "v1alpha1",
+	Resource: "testruns",
+}
+
+// dynamicClientset creates a new Kubernetes dynamic client for CRD access.
+func (k *Kubernetes) dynamicClientset() (dynamic.Interface, error) {
+	if k.dynamicClient != nil {
+		return k.dynamicClient, nil
+	}
+	if k.config == nil {
+		cfg, err := k.kubeconfig()
+		if err != nil {
+			return nil, err
+		}
+		k.config = cfg
+	}
+	cli, err := dynamic.NewForConfig(k.config)
+	if err != nil {
+		k.logger.Errorf("Failed to create dynamic Kubernetes client: %v", err)
+		return nil, err
+	}
+	k.dynamicClient = cli
+	return k.dynamicClient, nil
+}
+
+// hasActiveTestRun checks if a TestRun CR exists for the given identifier and is still active.
+// This prevents falsely assuming a testrun is finished when the suite-runner Job has not been
+// created yet (e.g. during environment provisioning in v1alpha).
+func (k *Kubernetes) hasActiveTestRun(ctx context.Context, identifier string) bool {
+	dynClient, err := k.dynamicClientset()
+	if err != nil {
+		k.logger.Warningf("failed to create dynamic client to check TestRun: %v", err)
+		return false
+	}
+
+	testruns, err := k.getTestRunsByIdentifier(ctx, dynClient, identifier)
+	if err != nil {
+		k.logger.Warningf("failed to list TestRun CRs for %s: %v", identifier, err)
+		return false
+	}
+
+	for _, tr := range testruns {
+		// A TestRun with no completionTime in status is still active.
+		status, found, _ := unstructured.NestedMap(tr.Object, "status")
+		if !found {
+			// No status at all means the controller hasn't reconciled yet — still active.
+			return true
+		}
+		if _, hasCompletion := status["completionTime"]; !hasCompletion {
+			// No completionTime means the testrun is still running.
+			return true
+		}
+	}
+	return false
+}
+
+// getTestRunsByIdentifier returns TestRun CRs matching the given identifier label.
+func (k *Kubernetes) getTestRunsByIdentifier(ctx context.Context, dynClient dynamic.Interface, identifier string) ([]unstructured.Unstructured, error) {
+	// Check cache first
+	allTestRuns, err := k.cache.getAllTestRuns(ctx, dynClient, k.namespace, k.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	var matching []unstructured.Unstructured
+	for _, tr := range allTestRuns {
+		labels := tr.GetLabels()
+		if labels["etos.eiffel-community.github.io/id"] == identifier {
+			matching = append(matching, tr)
+		}
+	}
+	return matching, nil
 }
 
 // LogListenerIP gets the IP address of an ESR log listener.
