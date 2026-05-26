@@ -46,11 +46,9 @@ class StartTestrunRequest(TestrunRequest):
     artifact_id: Optional[UUID] = Field(default=None, validate_default=True)
     test_suite_url: str
     dataset: Union[dict, list[dict]] = {}
-    execution_space_provider: Optional[str] = os.getenv(
-        "DEFAULT_EXECUTION_SPACE_PROVIDER", "default"
-    )
-    iut_provider: Optional[str] = os.getenv("DEFAULT_IUT_PROVIDER", "default")
-    log_area_provider: Optional[str] = os.getenv("DEFAULT_LOG_AREA_PROVIDER", "default")
+    execution_space_provider: Optional[str] = os.getenv("DEFAULT_EXECUTION_SPACE_PROVIDER", "")
+    iut_provider: Optional[str] = os.getenv("DEFAULT_IUT_PROVIDER", "")
+    log_area_provider: Optional[str] = os.getenv("DEFAULT_LOG_AREA_PROVIDER", "")
     timeout: Optional[int] = None
     deadline: Optional[int] = None
 
