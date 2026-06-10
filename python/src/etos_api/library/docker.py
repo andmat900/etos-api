@@ -186,7 +186,7 @@ class Docker:
         return parameters
 
     def reference(self, name: str) -> tuple[str, str]:
-        """Figure out the manifest reference (tag or digest) from an image name.
+        """Resolve a manifest tag or digest from an image name.
 
         A container image can be referenced by tag (``name:tag``), by content
         digest (``name@sha256:<hex>``), or by both at once

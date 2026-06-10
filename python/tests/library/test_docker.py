@@ -201,6 +201,8 @@ class TestDockerDigestRetry:
 class TestDockerReferenceParsing:
     """Test parsing of image references (tag and digest) by Docker."""
 
+    logger = logging.getLogger(__name__)
+
     @pytest.mark.parametrize(
         "name, expected_base, expected_reference",
         [
@@ -264,13 +266,7 @@ class TestDockerReferenceParsing:
         assert base == expected_base
         assert reference == expected_reference
 
-
-class TestDockerManifestUrl:
-    """Test the manifest URL built by Docker.digest."""
-
-    logger = logging.getLogger(__name__)
-    pytestmark = pytest.mark.asyncio
-
+    @pytest.mark.asyncio
     @patch.object(Docker, "_get_digest", new_callable=AsyncMock)
     async def test_digest_pinned_image_builds_correct_manifest_url(self, mock_get_digest):
         """Test that a digest-pinned image produces a digest-based manifest URL.
@@ -291,6 +287,7 @@ class TestDockerManifestUrl:
             f"https://ghcr.io/v2/eiffel-community/etos-test-runner/manifests/{digest}"
         )
 
+    @pytest.mark.asyncio
     @patch.object(Docker, "_get_digest", new_callable=AsyncMock)
     async def test_tag_based_image_builds_correct_manifest_url(self, mock_get_digest):
         """Test that a tag-based image produces a tag-based manifest URL.
