@@ -27,6 +27,7 @@ DEFAULT_TAG = "latest"
 DEFAULT_REGISTRY = "index.docker.io"
 REPO_DELIMITER = "/"
 TAG_DELIMITER = ":"
+DIGEST_DELIMITER = "@"
 
 # Retry configuration for transient connection errors.
 # Uses exponential backoff: delay = BACKOFF_FACTOR * 2^(attempt-1)
@@ -184,6 +185,29 @@ class Docker:
             parameters[key] = value.strip('"')
         return parameters
 
+    def reference(self, name: str) -> tuple[str, str]:
+        """Resolve a manifest tag or digest from an image name.
+
+        A container image can be referenced by tag (``name:tag``), by content
+        digest (``name@sha256:<hex>``), or by both at once
+        (``name:tag@sha256:<hex>``). When a digest is present it takes
+        precedence over any tag and is returned verbatim so it can be used
+        directly in a manifest URL; the tag, if any, is discarded.
+
+        :param name: Name of image.
+        :return: Base image name without reference and the reference (tag or digest).
+        """
+        # A digest is delimited from the image name by '@' and is used as the
+        # manifest reference verbatim (e.g. 'sha256:<hex>'). If a tag is also
+        # present (name:tag@sha256:<hex>), the tag is discarded in favour of
+        # the digest.
+        if DIGEST_DELIMITER in name:
+            name, digest = name.split(DIGEST_DELIMITER, 1)
+            base, _ = self.tag(name)
+            self.logger.info("Assuming digest reference is %r", digest)
+            return base, digest
+        return self.tag(name)
+
     def tag(self, base: str) -> tuple[str, str]:
         """Figure out tag from a container image name.
 
@@ -239,9 +263,9 @@ class Docker:
         :return: The sha256 digest of the container image.
         """
         self.logger.info("Figure out digest for %r", name)
-        base, tag = self.tag(name)
+        base, reference = self.reference(name)
         registry, repo = self.repository(base)
-        manifest_url = f"https://{registry}/v2/{repo}/manifests/{tag}"
+        manifest_url = f"https://{registry}/v2/{repo}/manifests/{reference}"
         return await self._retry(self._get_digest, name, manifest_url)
 
     async def _retry(

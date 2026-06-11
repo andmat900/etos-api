@@ -196,3 +196,112 @@ class TestDockerDigestRetry:
         # Delays: BACKOFF_FACTOR * 2^0, BACKOFF_FACTOR * 2^1, BACKOFF_FACTOR * 2^2
         # No sleep after the last attempt.
         assert recorded_delays == [1, 2, 4]
+
+
+class TestDockerReferenceParsing:
+    """Test parsing of image references (tag and digest) by Docker."""
+
+    logger = logging.getLogger(__name__)
+
+    @pytest.mark.parametrize(
+        "name, expected_base, expected_reference",
+        [
+            # Tag-based references.
+            ("etos-test-runner", "etos-test-runner", "latest"),
+            ("etos-test-runner:1.2.3", "etos-test-runner", "1.2.3"),
+            (
+                "ghcr.io/eiffel-community/etos-test-runner:latest",
+                "ghcr.io/eiffel-community/etos-test-runner",
+                "latest",
+            ),
+            # Registry with port and no tag must not confuse the port for a tag.
+            (
+                "registry.example.com:5000/etos-test-runner",
+                "registry.example.com:5000/etos-test-runner",
+                "latest",
+            ),
+            (
+                "registry.example.com:5000/etos-test-runner:1.2.3",
+                "registry.example.com:5000/etos-test-runner",
+                "1.2.3",
+            ),
+            # Digest-pinned references must use the digest verbatim.
+            (
+                "ghcr.io/eiffel-community/etos-test-runner@sha256:" + "a" * 64,
+                "ghcr.io/eiffel-community/etos-test-runner",
+                "sha256:" + "a" * 64,
+            ),
+            (
+                "etos-test-runner@sha256:" + "b" * 64,
+                "etos-test-runner",
+                "sha256:" + "b" * 64,
+            ),
+            # Registry with port and digest.
+            (
+                "registry.example.com:5000/etos-test-runner@sha256:" + "c" * 64,
+                "registry.example.com:5000/etos-test-runner",
+                "sha256:" + "c" * 64,
+            ),
+            # Both tag and digest present: the digest wins and the tag is dropped.
+            (
+                "ghcr.io/eiffel-community/etos-test-runner:1.2.3@sha256:" + "d" * 64,
+                "ghcr.io/eiffel-community/etos-test-runner",
+                "sha256:" + "d" * 64,
+            ),
+        ],
+    )
+    def test_reference(self, name, expected_base, expected_reference):
+        """Test that reference returns the correct base image and reference.
+
+        Approval criteria:
+            - Tag-based references shall be parsed into base image and tag.
+            - Digest-pinned references shall be parsed into base image and digest.
+
+        Test steps::
+            1. Call reference with an image name.
+            2. Verify the returned base image and reference are correct.
+        """
+        docker = Docker()
+        base, reference = docker.reference(name)
+        assert base == expected_base
+        assert reference == expected_reference
+
+    @pytest.mark.asyncio
+    @patch.object(Docker, "_get_digest", new_callable=AsyncMock)
+    async def test_digest_pinned_image_builds_correct_manifest_url(self, mock_get_digest):
+        """Test that a digest-pinned image produces a digest-based manifest URL.
+
+        Approval criteria:
+            - The manifest URL for a digest-pinned image shall reference the digest
+              verbatim, not parse it as a tag.
+
+        Test steps::
+            1. Call digest with a digest-pinned image name.
+            2. Verify the manifest URL passed to _get_digest uses the digest.
+        """
+        mock_get_digest.return_value = "sha256:" + "a" * 64
+        docker = Docker()
+        digest = "sha256:" + "a" * 64
+        await docker.digest(f"ghcr.io/eiffel-community/etos-test-runner@{digest}")
+        mock_get_digest.assert_awaited_once_with(
+            f"https://ghcr.io/v2/eiffel-community/etos-test-runner/manifests/{digest}"
+        )
+
+    @pytest.mark.asyncio
+    @patch.object(Docker, "_get_digest", new_callable=AsyncMock)
+    async def test_tag_based_image_builds_correct_manifest_url(self, mock_get_digest):
+        """Test that a tag-based image produces a tag-based manifest URL.
+
+        Approval criteria:
+            - The manifest URL for a tag-based image shall reference the tag.
+
+        Test steps::
+            1. Call digest with a tag-based image name.
+            2. Verify the manifest URL passed to _get_digest uses the tag.
+        """
+        mock_get_digest.return_value = "sha256:abc123"
+        docker = Docker()
+        await docker.digest("ghcr.io/eiffel-community/etos-test-runner:1.2.3")
+        mock_get_digest.assert_awaited_once_with(
+            "https://ghcr.io/v2/eiffel-community/etos-test-runner/manifests/1.2.3"
+        )
